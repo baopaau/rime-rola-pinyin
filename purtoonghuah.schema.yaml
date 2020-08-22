@@ -1,0 +1,208 @@
+# Rime schema
+# encoding: utf-8
+
+schema:
+  schema_id: purtoonghuah
+  name: "Pur'toong-huah"
+  version: "0.3e"
+  author:
+    - 抱豹 <baopaau@gmail.com>
+  description: |
+    拼音羅馬字輸入方案
+    異拼式注調
+    適合作爲純字母鍵盤的帶調拼音輸入方案。
+    
+    標調規則：
+    在漢語拼音方案的基礎上，
+    `ü`換成`yu`，
+    輕聲無調號，作原形
+    陰平：原標調字母（韻腹）雙寫，優先級：`a>e=o>i=u`，同優先級取尾部，
+    陽平：在元音後加`r`，
+    上聲：在元音後加`l`，
+    去聲：在元音後加`h`，如出現`hn|hng`，則分別換成`nn|nq`，
+    
+    基於地球拼音碼表，需要`terra_pinyin.dict.yaml`。
+    按V從漢語拼音反查。
+    
+  dependencies:
+    - terra_pinyin
+
+switches:
+  - name: ascii_mode
+    states: [ 中文, ASCII ]
+    reset: 0
+  - name: full_shape
+    states: [ 半形, 全形 ]
+  - options: [ noop, simplification, variants_hk, trad_tw, shin_jp ]
+    states: [ 原字, 陆简, 港繁, 臺正, 日新 ]
+    # 修改下行註釋，改變預設用字 [0, 1, 2, 3, 5 --> 對應上表]
+    reset: 0
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+  - name: emoji_suggestion
+    states: [ 無繪文字 , 帶繪文字 ]
+    # 註釋下行，預設禁用 emoji
+    reset: 1
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - reverse_lookup_translator
+    - table_translator@custom_phrase
+    - script_translator
+  filters:
+    - simplifier
+    - simplifier@variants_hk
+    - simplifier@trad_tw
+    - simplifier@shin_jp
+    - simplifier@emoji_suggestion
+    #- reverse_lookup_filter
+    - uniquifier
+    
+grammar:
+  language: "zh-hant-t-essay-bgw"
+
+speller:
+  alphabet: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    - erase/^xx$/
+    - derive/\<r5\>/er/
+    
+    - xform/\<([nl])v/$1yu/
+    - xform/\<r5\>/r/
+    
+    # 音別名
+    - derive/^([nl])yu/$1u/
+    - derive/^([jq])u/$1yu/
+    
+    - derive/^yi?/i/
+    - derive/^wu?/u/
+    - derive/un/uen/
+    - derive/ui/uei/
+    - derive/iu/iou/
+    - derive/ao/au/
+    
+    # 國羅聲母混用
+    - derive/^zh([aeo])/j$1/
+    #- derive/^qi(\w+)/chi$1/
+    #- derive/^xi(\w+)/shi$1/
+    
+    # 鍵序容錯
+    - fuzz/ao/oa/
+    - fuzz/([aeiou])ng/$1gn/
+    - fuzz/([iu])a(o|ng?)/a$1$2/
+    
+    # 忽略聲調
+    - derive/[1234]//
+    
+    # 允許任意元音雙寫表示陰平調
+    - fuzz/([aeoiu])(\w+?)1\>/$1$1$2/
+    - fuzz/([aeoiu])1\>/$1$1/
+    
+    # ※標調規則※
+    - xform/([aeo])(\w*?)1\>/$1$1$2/
+    - xform/([iu])(\w*?)1\>/$1$1$2/
+    - xform/([aeoiur])(|ng?)2\>/$1l$2/
+    - xform/([aeoiur])(|ng?)3\>/$1r$2/
+    - xform/([aeoiur])(|ng?)4\>/$1h$2/
+    - xform/hn\>/nn/
+    - xform/hng\>/nq/
+    - xform/5\>//
+    
+    # 標調規則模糊
+    - fuzz/nq$/hng/
+    - fuzz/nn$/hn/
+    
+    # `v`簡寫
+    - derive/\<([nl])yu/$1v/
+    - derive/\<([nl])yuu/$1vv/
+    
+    # 簡拼
+    - abbrev/^([a-z]).+$/$1/
+    #- abbrev/^([zcs]h).+$/$1/
+    - abbrev/^([a-z]{2}).+$/$1/   # 首2字母簡拼
+    
+translator:
+  dictionary: terra_pinyin
+  prism: purtoonghuah
+  spelling_hints: 7
+  strict_spelling: false
+  # 是否導入語境建議，需配合語言模型
+  contextual_suggestions: true
+  # 語境建議：同音異形詞
+  max_homophones: 5
+  # 語境建議：同形異義詞
+  max_homographs: 5
+  comment_format: &comment
+    - xform/\<([nl])v/$1yu/
+    - xform/\<r5\>/r/
+    - xform/([aeo])(\w*?)1\>/$1$1$2/
+    - xform/([iu])(\w*?)1\>/$1$1$2/
+    - xform/([aeoiur])(|ng?)2\>/$1l$2/
+    - xform/([aeoiur])(|ng?)3\>/$1r$2/
+    - xform/([aeoiur])(|ng?)4\>/$1h$2/
+    - xform/hn\>/nn/
+    - xform/hng\>/nq/
+    - xform/5\>//
+    
+custom_phrase:
+  dictionary: ""
+  user_dict: custom_phrase
+  db_class: stabledb
+  enable_completion: false
+  enable_sentence: false
+  initial_quality: 1
+    
+reverse_lookup:
+  overwrite_comment: true
+  dictionary: terra_pinyin
+  prism: terra_pinyin
+  prefix: "v"
+  suffix: "'"
+  tips: 〔漢語拼音〕
+  comment_format: *comment
+  
+variants_hk:
+  option_name: variants_hk
+  opencc_config: t2hkf.json
+
+trad_tw:
+  option_name: trad_tw
+  opencc_config: t2tw.json
+  
+shin_jp:
+  option_name: shin_jp
+  opencc_config: t2jp.json
+
+emoji_suggestion:
+  opencc_config: emoji.json
+  option_name: emoji_suggestion
+  tips: all
+  
+punctuator:
+  import_preset: symbols
+
+key_binder:
+  import_preset: default
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: "^/([0-9]0?|[a-z]+)$"
+    reverse_lookup: "^v[a-z]*'?$|[a-z]+'$"
