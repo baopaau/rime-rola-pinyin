@@ -1,0 +1,136 @@
+# Rime schema
+# encoding: utf-8
+
+schema:
+  schema_id: rola_qualnpiin
+  name: "Qualnpiin"
+  version: "0.1"
+  author:
+    - 抱豹 <baopaau@gmail.com>
+  description: |
+    「全拼」供形碼反查之用。
+    
+    不用數字或符號表示聲調，類似國語羅馬字，
+    只使用最簡單的變換規則，掌握漢語拼音者可輕易習得。
+    適合作爲純字母鍵盤的帶調拼音輸入方案。
+    
+    標調規則：
+    在漢語拼音方案的基礎上，
+    `ü`換成`yu`，
+    陰平：原標調字母（韻腹）雙寫，優先級：`a>e=o>i=u`，iu並列時取靠前者，【表示平穩、延長】
+    陽平：在元音後加`l`，【表示音調平穩地上升】〔規則與Xin Talng相同〕
+    上聲：在元音後加`r`，【發音接近l（表示兩者相近），音調先降後升（如其筆順）】
+    去聲：在元音後加`h`，如出現`hn|hng`，則分別換成`nn|nq`，【表示降調】
+    輕聲：同漢語拼音原形，輕聲`er`單獨作`r`。【拼寫最短，發音最短】
+    
+    基於地球拼音碼表，需要`terra_pinyin.dict.yaml`。
+    
+  dependencies:
+    - terra_pinyin
+
+switches:
+  - name: ascii_mode
+    states: [ 中文, ASCII ]
+    reset: 0
+  - name: full_shape
+    states: [ 半形, 全形 ]
+  - options: [ noop, simplification ]
+    states: [ 原字, 陆简 ]
+    reset: 0
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - reverse_lookup_translator
+    - script_translator
+  filters:
+    - simplifier
+    - uniquifier
+
+speller:
+  alphabet: 'zyxwvutsrqponmlkjihgfedcba"'
+  delimiter: " '"
+  algebra:
+    - erase/^xx$/
+    
+    # 前置
+    - xform/\<([nl])v/$1yu/
+    
+    # 音別名
+    - derive/^([nl])yu/$1u/
+    - derive/^([jqx])u/$1yu/
+    - derive/^yi?/i/
+    - derive/^wu?/u/
+    - derive/un/uen/
+    - derive/ui/uei/
+    - derive/iu/iou/
+    - derive/ao/au/
+    
+    # 鍵序容錯
+    - fuzz/ao/oa/
+    - fuzz/([aeiou])ng/$1gn/
+    - fuzz/([iu])a(o|ng?)/a$1$2/
+    
+    # 忽略聲調
+    - derive/[12345]//
+    
+    # 允許任意元音雙寫表示陰平調
+    - fuzz/([aeoiu])(\w+?)1\>/$1$1$2/
+    - fuzz/([aeoiu])1\>/$1$1/
+    
+    # ※標調規則※
+    - xform/([aeo])(\w*?)1\>/$1$1$2/
+    - xform/([iu])(\w*?)1\>/$1$1$2/
+    - xform/([aeoiur])(|ng?)2\>/$1l$2/
+    - xform/([aeoiur])(|ng?)3\>/$1r$2/
+    - xform/([aeoiur])(|ng?)4\>/$1h$2/
+    - xform/hn\>/nn/
+    - xform/hng\>/nq/
+    - 'xform/5\>/"/'
+    
+    # `v`簡寫
+    - derive/\<([nl])yu/$1v/
+    - derive/\<([nl])yuu/$1vv/
+    
+translator:
+  dictionary: terra_pinyin
+  prism: rola_qualnpiin
+  spelling_hints: 5
+  comment_format:
+    - xform/\<([nl])v/$1yu/
+    - xform/([aeo])(\w*?)1\>/$1$1$2/
+    - xform/([iu])(\w*?)1\>/$1$1$2/
+    - xform/([aeoiur])(|ng?)2\>/$1l$2/
+    - xform/([aeoiur])(|ng?)3\>/$1r$2/
+    - xform/([aeoiur])(|ng?)4\>/$1h$2/
+    - xform/hn\>/nn/
+    - xform/hng\>/nq/
+    - 'xform/5\>//'
+  
+punctuator:
+  import_preset: symbols
+
+key_binder:
+  import_preset: default
+
+recognizer:
+  import_preset: default
+  patterns:
+    punct: "^/([0-9]0?|[a-z]+)$"
